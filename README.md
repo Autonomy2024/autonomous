@@ -414,3 +414,20 @@ open a new terminal, transfer vio data to mavros and fcs:
 cd ~/catkin_ws/src/autonomous/scripts
 python vins_transfer.py iris 0
 ```
+
+Now you can fly freely.
+
+
+
+#### 1.7 update ground station(QroundControl)
+
+ Download QGroundControl.AppImage from this link: https://github.com/mavlink/qgroundcontrol/releases
+
+and then give executable permissions
+
+```
+chmod +x  QGroundControl.AppImage
+./QGroundControl,AppImage
+```
+
+If you want to disable fuse gps, and only use vio to fuse , you can set ekf2_aid_mask  to 24
