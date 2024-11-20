@@ -238,6 +238,7 @@ To get the *very latest* (`demo_sitl` branch) version onto your computer, enter 
 
 ```
 git clone https://github.com/ApexPilot2024/PX4_Firmware.git
+cd PX4_Firmware
 git checout demo_sitl
 git submodule update --init --recursive
 ```
