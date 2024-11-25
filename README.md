@@ -446,6 +446,7 @@ cd ../..
 catkin_make
 
 then Run RIO
+
 bash src/autonomous/scripts/run_rio.sh
 
 
