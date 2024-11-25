@@ -1,0 +1,3 @@
+[submodule "modules/RIO"]
+	path = modules/RIO
+	url = git@github.com:ApexPilot2024/ekf_rio.git
