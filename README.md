@@ -432,3 +432,21 @@ chmod +x  QGroundControl.AppImage
 ```
 
 If you want to disable fuse gps, and only use vio to fuse , you can set ekf2_aid_mask  to 24
+
+
+#### 1.8 Compile and run RIO
+
+First compile RIO
+
+cd ~/catkin_ws/src
+git clone git@github.com:ApexPilot2024/autonomous.git
+cd autonomous
+git submodule update --init --recursive
+cd ../..
+catkin_make
+
+then Run RIO
+bash src/autonomous/scripts/run_rio.sh
+
+
+
