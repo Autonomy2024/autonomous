@@ -439,9 +439,7 @@ If you want to disable fuse gps, and only use vio to fuse , you can set ekf2_aid
 First compile RIO
 
 ```
-cd ~/catkin_ws/src
-git clone git@github.com:ApexPilot2024/autonomous.git
-cd autonomous
+cd ~/catkin_ws/src/autonomous
 git submodule update --init --recursive
 cd ../..
 catkin_make
