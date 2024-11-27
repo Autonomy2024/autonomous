@@ -1,4 +1,4 @@
-# Simulation Guide
+Simulation Guide
 
 ## 1. install
 
@@ -266,13 +266,13 @@ sudo aptitude install gazebo libgazebo11 libgazebo-dev
 running the simulatuion:
 
 ```
-cd /path/to/PX4-Autopilot
+cd /path/to/PX4_Firmware
 make px4_sitl gazebo
 ```
 
 If you run success, Now you can see :
 
-![Screenshot from 2024-11-18 21-33-37](/home/jason/Pictures/Screenshots/Screenshot from 2024-11-18 21-33-37.png)
+![](/home/jason/catkin_ws/src/autonomous/docs/Screenshot from 2024-11-27 16-21-01.png)
 
 
 
@@ -283,10 +283,9 @@ Download and compile mavros:
 ```
 mkdir -p ~/catkin_ws/src
 cd ~/catkin_ws/src
-git clone git@github.com:ApexPilot2024/mavros.git
-git checkout demo_sitl
-cd ..
-catkin_make
+git clone git@github.com:Autonomy2024/autonomous.git
+cd autonomous
+git submodule update --init --recursive
 ```
 
 Install libgeographic and geographiclib
@@ -299,18 +298,11 @@ sudo apt-get install geographiclib-tools
 install geographiclib datasets:
 
 ```
-cd ~/catkin_ws/src/mavros/mavros/scripts/
+cd ~/catkin_ws/src/autonomous/driver/mavros/mavros/scripts/
 sudo ./install_geographiclib_datasets.sh
 ```
 
-mavros setting:
 
-```
-gedit ~/.bashrc
-# Add this source in .bashrc
-source ~/catkin_ws/devel/setup.bash
-
-```
 
 Because the order in which Gazebo looks for models is to search in .gazebo/models/ first, and then search in other paths, so when copying models to PX4 SITL, pay attention to whether there is a file with the same name under .gazebo/models/ (such as  stereo_camera) , if any, either delete the file with the same name, or replace the file with the same name.
 
@@ -325,34 +317,6 @@ You need to remove the stereo_camera 3d_lidar in  ~/.gazebo/models/
 ```
 cd ~/.gazebo/models/
 rm -r stereo_camera/ 3d_lidar/ 3d_gpu_lidar/ hokuyo_lidar/
-```
-
-
-
-#### 1.5  running 
-
-Add this to ~/.bashrc
-
-```
-gedit ~/.bashrc
-# Add this source in .bashrc
-source /YOUR_PATH/Tools/setup_gazebo.bash /YOUR_PATH/ /YOUR_PATH/build/px4_sitl_default
-export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/YOUR_PATH
-export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/YOUR_PATH/Tools/sitl_gazebo
-
-```
-
-run:
-
-```
-source ~/.bashrc
-roslaunch px4 mavros_posix_sitl.launch
-```
-
-or run:
-
-```
-roslaunch px4 lidar_camera.launch
 ```
 
 
@@ -385,14 +349,45 @@ make
 sudo make install
 ```
 
-clone and compile autonomous project
+#### 1.5  compile and running 
+
+Add this to ~/.bashrc
 
 ```
-cd ~/catkin_ws/src
-git clone git@github.com:ApexPilot2024/autonomous.git
-cd ..
-catkin_make
+gedit ~/.bashrc
+# Add this source in .bashrc
+source /YOUR_PATH/Tools/setup_gazebo.bash /YOUR_PATH/ /YOUR_PATH/build/px4_sitl_default
+export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/YOUR_PATH
+export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/YOUR_PATH/Tools/sitl_gazebo
 
+```
+
+compile autonomous project:
+
+```
+cd ~/catkin_ws/
+catkin_make or catkin build
+```
+
+Add this source in ~/.bashrc
+
+```
+gedit ~/.bashrc
+
+source ~/catkin_ws/devel/setup.bash
+```
+
+run:
+
+```
+source ~/.bashrc
+roslaunch px4 mavros_posix_sitl.launch
+```
+
+or run:
+
+```
+roslaunch px4 lidar_camera.launch
 ```
 
 running VIO:
@@ -416,11 +411,15 @@ cd ~/catkin_ws/src/autonomous/scripts
 python vins_transfer.py iris 0
 ```
 
-Now you can fly freely.
+ or running RIO:
+
+```
+bash src/autonomous/scripts/run_rio.sh
+```
 
 
 
-#### 1.7 update ground station(QroundControl)
+#### 1.6 update ground station(QroundControl)
 
  Download QGroundControl.AppImage from this link: https://github.com/mavlink/qgroundcontrol/releases
 
@@ -431,24 +430,5 @@ chmod +x  QGroundControl.AppImage
 ./QGroundControl,AppImage
 ```
 
-If you want to disable fuse gps, and only use vio to fuse , you can set ekf2_aid_mask  to 24
-
-
-#### 1.8 Compile and run RIO
-
-First compile RIO
-
-```
-cd ~/catkin_ws/src/autonomous
-git submodule update --init --recursive
-cd ../..
-catkin_make
-```
-
-then Run RIO
-
-```
-bash src/autonomous/scripts/run_rio.sh
-```
-
+NOTE: If you want to disable fuse gps, and only use vio to fuse , you can set ekf2_aid_mask  to 24. if you use RIO to fuse, you can set ekf2_aid_mask  to 256
 
