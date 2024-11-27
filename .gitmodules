@@ -4,3 +4,7 @@
 [submodule "modules/slam"]
 	path = modules/slam
 	url = git@github.com:ApexPilot2024/VINS-Fusion.git
+[submodule "driver/mavros"]
+	path = driver/mavros
+	url = git@github.com:ApexPilot2024/mavros.git
+	branch = demo_sitl
