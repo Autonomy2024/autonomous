@@ -26,7 +26,7 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-a
 主要是rosdep、vcstools等一系列用于源码安装的工具。  
 
 ```bash
-sudo apt-get install python3-rosdep python3-rosinstall-generator python3-vcstools python3-vcstool build-essential
+sudo apt-get install python3-rosdep2 python3-rosinstall-generator python3-vcstools python3-vcstool build-essential
 ```
 
 初始化rosdep。  
@@ -342,7 +342,10 @@ export PATH=$PATH:$CUDA_HOME/bin
 update ceres-solver:
 
 ```
+sudo apt install libgoogle-glog-dev
+sudo apt-get install libsuitesparse-dev
 git clone --recurse-submodules https://github.com/ceres-solver/ceres-solver
+git checkout 1.14.0
 mdkir build
 cd build
 cmake ..
@@ -366,6 +369,9 @@ export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/YOUR_PATH/Tools/sitl_gazebo
 compile autonomous project:
 
 ```
+sudo apt install python3-pip python3-rosdep python3-catkin-pkg python3-rospkg
+sudo apt install python3-pip
+sudo pip3 install catkin-tools
 cd ~/catkin_ws/
 catkin_make or catkin build
 ```
