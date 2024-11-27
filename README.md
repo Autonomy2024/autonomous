@@ -11,6 +11,7 @@ Simulation Guide
 #### 添加ROS2 GPG密钥
 
 ```bash
+sudo apt update && sudo apt install curl -y
 sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
 ```
 
@@ -164,13 +165,13 @@ git clone https://github.com/dreuter/rosconsole.git
 cd rosconsole
 git checkout noetic-jammy
 cd ..
-mv rosconsole src
+cp rosconsole ./src -rf
 
 git clone https://github.com/dreuter/urdf.git
 cd urdf
 git checkout set-cxx-version
 cd ..
-mv urdf src
+cp urdf ./src -rf
 ```
 
 #### 构建Ros1 Noetic
@@ -237,7 +238,7 @@ source ~/ros_catkin_ws/install_isolated/setup.bash
 To get the *very latest* (`demo_sitl` branch) version onto your computer, enter the following command into a terminal:
 
 ```
-git clone https://github.com/ApexPilot2024/PX4_Firmware.git
+git clone git@github.com:Autonomy2024/PX4_Firmware.git
 cd PX4_Firmware
 git checout demo_sitl
 git submodule update --init --recursive
