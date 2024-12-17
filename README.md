@@ -230,7 +230,7 @@ vcs import --input noetic-packages.rosinstall ./src
 ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release
 source ~/ros_catkin_ws/install_isolated/setup.bash
 ```
-
+在编译mavros时，遇到报错缺少future包，需要手动安装 pip install future
 
 
 ### 1.2  Autopilot install
