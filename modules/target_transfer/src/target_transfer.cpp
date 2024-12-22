@@ -5,16 +5,21 @@
 #include <geometry_msgs/Point.h>
 #include <mavros_msgs/FollowTarget.h>
 #include <nav_msgs/Odometry.h>
+#include <string>
 
 class TargetTransfer {
 public:
     TargetTransfer() {
         // 初始化订阅者和发布者
-        global_pos_sub_ = nh_.subscribe("/mavros/global_position/global", 10, &TargetTransfer::globalPosCallback, this);
-        gps_vel_sub_ = nh_.subscribe("/mavros/global_position/raw/gps_vel", 10, &TargetTransfer::gpsVelCallback, this);
-        target_vel_sub_ = nh_.subscribe("/mavros/local_position/odom", 10, &TargetTransfer::TargetVelCallback, this);
+        std::string source;
+        std::string dest;
+	      nh_.param<std::string>("source", source, "/rover_1");
+        nh_.param<std::string>("dest", dest, "/iris_0");
+        global_pos_sub_ = nh_.subscribe(source+"/mavros/global_position/global", 10, &TargetTransfer::globalPosCallback, this);
+        gps_vel_sub_ = nh_.subscribe(source+"/mavros/global_position/raw/gps_vel", 10, &TargetTransfer::gpsVelCallback, this);
+        target_vel_sub_ = nh_.subscribe(source+"/mavros/local_position/odom", 10, &TargetTransfer::TargetVelCallback, this);
 
-        target_pub_ = nh_.advertise<mavros_msgs::FollowTarget>("/mavros/FollowTarget", 10);
+        target_pub_ = nh_.advertise<mavros_msgs::FollowTarget>(dest+"/mavros/target_localization", 10);
         
     }
 
@@ -31,6 +36,7 @@ public:
     // 处理GPS速度回调
     void TargetVelCallback(const nav_msgs::Odometry::ConstPtr& msg) {
         target_velocity_ = *msg;
+
     }
 
     // 合并并发布目标位置
@@ -52,8 +58,8 @@ public:
 
             // 发布合并后的目标数据
             target_pub_.publish(target_msg);
-            ROS_INFO("Published target global position: [%f, %f, %f]", target_msg.latitude, target_msg.longitude, target_msg.altitude);
-            ROS_INFO("Published target velocity: [%f, %f, %f]", target_msg.vx, target_msg.vy, target_msg.vz);
+          // ROS_INFO("Published target global position: [%f, %f, %f]", target_msg.latitude, target_msg.longitude, target_msg.altitude);
+          // ROS_INFO("Published target velocity: [%f, %f, %f]", target_msg.vx, target_msg.vy, target_msg.vz);
 
     }
 
