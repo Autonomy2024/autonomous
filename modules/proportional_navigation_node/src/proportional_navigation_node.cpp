@@ -4,6 +4,7 @@
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/CommandBool.h>
+#include <mavros_msgs/PositionTarget.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <geographic_msgs/GeoPointStamped.h>
 #include <math.h>
@@ -101,13 +102,16 @@ public:
         velocity_pub_ = nh_.advertise<geometry_msgs::TwistStamped>("iris_0/mavros/setpoint_velocity/cmd_vel", 10);
         state_sub_ = nh_.subscribe("iris_0/mavros/state", 10, &ProportionalNavigationNode::stateCallback, this);
         position_sub_ = nh_.subscribe("iris_0/mavros/local_position/pose", 10, &ProportionalNavigationNode::positionCallback, this);
-
+        setpoint_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("iris_0/mavros/setpoint_raw/local", 10);
+    
         target_sub_ = nh_.subscribe("rover_1/mavros/global_position/global", 10, &ProportionalNavigationNode::targetCallback, this);
         gps_origin_sub_ = nh_.subscribe("iris_0/mavros/global_position/gp_origin", 10, &ProportionalNavigationNode::gpsOriginCallback, this);
 
         // 服务客户端，用于设置模式和解锁
         set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode>("iris_0/mavros/set_mode");
         arming_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("iris_0/mavros/cmd/arming");
+
+        target_ned_.Zero();
 
     }
 
@@ -144,10 +148,6 @@ public:
 
         while (ros::ok())
         {
-            // if (!current_state.armed) {
-            //     global_origin_(0) = 
-            // }
-        
             // 检查当前状态
             if (current_state_.mode != "OFFBOARD" || !current_state_.armed)
             {
@@ -163,6 +163,11 @@ public:
             geometry_msgs::TwistStamped cmd_vel = computeProportionalNavigation();
             velocity_pub_.publish(cmd_vel);
 
+            Eigen::Vector3f current_pos(current_position_.pose.position.x, current_position_.pose.position.y, current_position_.pose.position.z);
+            Eigen::Vector3f velocity_sp(cmd_vel.twist.linear.x, cmd_vel.twist.linear.y, cmd_vel.twist.linear.z);
+
+            publishSetpoint(velocity_sp, current_pos, target_ned_);
+
             ros::spinOnce();
             rate.sleep();
         }
@@ -171,6 +176,8 @@ public:
 private:
     ros::NodeHandle nh_;
     ros::Publisher velocity_pub_;
+    ros::Publisher setpoint_pub_;
+
     ros::Subscriber state_sub_;
     ros::Subscriber position_sub_;
     ros::Subscriber target_sub_;
@@ -184,6 +191,8 @@ private:
     geographic_msgs::GeoPointStamped gps_origin_;
 
     Eigen::Vector3d global_origin_;
+
+    Eigen::Vector3f target_ned_;
 
     void stateCallback(const mavros_msgs::State::ConstPtr &msg)
     {
@@ -250,16 +259,15 @@ private:
         double uy = current_position_.pose.position.y;
         double uz = current_position_.pose.position.z;
 
-        Eigen::Vector3f target_ned{0,0,0.f};
-        ROS_INFO("gps_origin_.position.latitude: %.7f, gps_origin_.position.longitude: %.7f",gps_origin_.position.latitude, gps_origin_.position.longitude);
-        ROS_INFO("target_.latitude: %.7f,  target_.longitude: %.7f",target_.latitude,  target_.longitude);
+        // ROS_INFO("gps_origin_.position.latitude: %.7f, gps_origin_.position.longitude: %.7f",gps_origin_.position.latitude, gps_origin_.position.longitude);
+        // ROS_INFO("target_.latitude: %.7f,  target_.longitude: %.7f",target_.latitude,  target_.longitude);
 
-        map_projection_project(gps_origin_.position.latitude, gps_origin_.position.longitude, target_.latitude, target_.longitude, target_ned.x(), target_ned.y());
-        ROS_INFO("target_ned.x: %.2f, target_ned.y: %.2f, target_ned.z: %.2f", target_ned.x(), target_ned.y(), target_ned.z());
+        map_projection_project(gps_origin_.position.latitude, gps_origin_.position.longitude, target_.latitude, target_.longitude, target_ned_.x(), target_ned_.y());
+        // ROS_INFO("target_ned.x: %.2f, target_ned.y: %.2f, target_ned.z: %.2f", target_ned_.x(), target_ned_.y(), target_ned_.z());
         // 目标点位置
-        double tx = target_ned.x();
-        double ty = target_ned.y();
-        double tz = target_ned.z();
+        double tx = target_ned_.x();
+        double ty = target_ned_.y();
+        double tz = target_ned_.z();
 
         // 计算相对位置和距离
         double dx = tx - ux;
@@ -280,7 +288,7 @@ private:
         double max_xy_vel = 5.0;
         double max_z_vel = 3.0;
         Eigen::Vector3f cur_pos(current_position_.pose.position.x, current_position_.pose.position.y, current_position_.pose.position.z);
-        Eigen::Vector3f target_pos(target_ned.x(), target_ned.y(), target_ned.z());
+        Eigen::Vector3f target_pos(target_ned_.x(), target_ned_.y(), target_ned_.z());
         Eigen::Vector3f pos_to_target = (target_pos - cur_pos).normalized();
         Eigen::Vector3f vel_sp_constrained = pos_to_target * (max_xy_vel * max_xy_vel + max_z_vel * max_z_vel);
         clampToXYNorm(vel_sp_constrained, max_xy_vel, 0.1f);
@@ -299,6 +307,43 @@ private:
         }
 
         return cmd_vel;
+    }
+
+    // 定义函数计算目标航向角
+    float calculateYaw(const Eigen::Vector3f& current_pos, const Eigen::Vector3f& target_pos) {
+        return std::atan2(target_pos.y() - current_pos.y(), target_pos.x() - current_pos.x());
+    }
+
+    // 更新发布航向的逻辑
+    void publishSetpoint(const Eigen::Vector3f& velocity, const Eigen::Vector3f& current_pos, const Eigen::Vector3f& target_pos) {
+        mavros_msgs::PositionTarget position_target_msg;
+
+        // 设置消息头
+        position_target_msg.header.stamp = ros::Time::now();
+        position_target_msg.header.frame_id = "map";
+
+        // 设置坐标系
+        position_target_msg.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;
+
+        // 设置控制模式
+        position_target_msg.type_mask = mavros_msgs::PositionTarget::IGNORE_PX |
+                                        mavros_msgs::PositionTarget::IGNORE_PY |
+                                        mavros_msgs::PositionTarget::IGNORE_PZ |
+                                        mavros_msgs::PositionTarget::IGNORE_AFX |
+                                        mavros_msgs::PositionTarget::IGNORE_AFY |
+                                        mavros_msgs::PositionTarget::IGNORE_AFZ |
+                                        mavros_msgs::PositionTarget::IGNORE_YAW_RATE;
+
+        // 设置速度
+        position_target_msg.velocity.x = velocity.x();
+        position_target_msg.velocity.y = velocity.y();
+        position_target_msg.velocity.z = velocity.z();
+
+        // 设置目标航向角
+        position_target_msg.yaw = calculateYaw(current_pos, target_pos);
+
+        // 发布指令
+        setpoint_pub_.publish(position_target_msg);
     }
 };
 
