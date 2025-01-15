@@ -19,7 +19,7 @@ public:
         gps_vel_sub_ = nh_.subscribe(source+"/mavros/global_position/raw/gps_vel", 10, &TargetTransfer::gpsVelCallback, this);
         target_vel_sub_ = nh_.subscribe(source+"/mavros/local_position/odom", 10, &TargetTransfer::TargetVelCallback, this);
 
-        target_pub_ = nh_.advertise<mavros_msgs::FollowTarget>(dest+"/mavros/target_localization", 10);
+        target_pub_ = nh_.advertise<mavros_msgs::FollowTarget>(dest+"/mavros/follow_target/target_localization", 10);
         
     }
 
