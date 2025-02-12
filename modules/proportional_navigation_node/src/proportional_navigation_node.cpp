@@ -1,5 +1,8 @@
 #include "proportional_navigation_node.h"
 
+using namespace Eigen;
+using namespace std;
+
 // 定义常量
 #define GRAVITY 9.81f
 #define MAX_TILT_ANGLE 0.174f              // 10度，最大倾斜角度
@@ -127,6 +130,7 @@ ProportionalNavigationNode::ProportionalNavigationNode()
     odom_sub_ = nh_.subscribe("iris_0/mavros/local_position/odom", 10, &ProportionalNavigationNode::odomCallback, this);
     rc_sub_ = nh_.subscribe("joy", 10, &ProportionalNavigationNode::joyCallback, this);
     bbox_sub_ = nh_.subscribe("LightTrack/bounding_boxes", 10, &ProportionalNavigationNode::boundboxCallback, this);
+    imu_sub_ = nh_.subscribe("iris_0/mavros/imu/data", 10, &ProportionalNavigationNode::imuCallback, this);
 
     setpoint_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("iris_0/mavros/setpoint_raw/local", 10);
     attitude_pub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("iris_0//mavros/setpoint_raw/attitude", 10);
@@ -148,6 +152,36 @@ ProportionalNavigationNode::ProportionalNavigationNode()
 
     target_center_x_ = 320;
     target_center_y_ = 240;
+
+    // 初始化状态转移矩阵 A
+    A << 1, 0, dt, 0, 0.5 * dt * dt, 0,
+        0, 1, 0, dt, 0, 0.5 * dt * dt,
+        0, 0, 1, 0, dt, 0,
+        0, 0, 0, 1, 0, dt,
+        0, 0, 0, 0, 1, 0,
+        0, 0, 0, 0, 0, 1;
+
+    // 控制矩阵 B (IMU 加速度输入)
+    B << 0, 0,
+        0, 0,
+        1, 0,
+        0, 1,
+        0, 0,
+        0, 0;
+
+    // 观测矩阵 H (仅测量目标位置)
+    H << 1, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0;
+
+    // 过程噪声 Q
+    Q = MatrixXd::Identity(6, 6) * 1.0;
+
+    // 观测噪声 R
+    R = MatrixXd::Identity(2, 2) * 5.0;
+
+    // 初始状态
+    x = VectorXd::Zero(6);
+    P = MatrixXd::Identity(6, 6) * 1000;
 }
 
 void ProportionalNavigationNode::run()
@@ -186,7 +220,7 @@ void ProportionalNavigationNode::run()
         if (start_attack_)
         {
             // 检查当前状态
-            if (current_state_.mode != "ALTCTL" || !current_state_.armed)
+            if (current_state_.mode != "MANUAL" || !current_state_.armed)
             {
                 ROS_WARN_THROTTLE(1, "OFFBOARD mode or arming lost. Trying to re-engage...");
                 if (!setOffboardAndArm())
@@ -199,7 +233,8 @@ void ProportionalNavigationNode::run()
             // mavros_msgs::ManualControl manual_control_msg = computeAttitudeControl();
             // manual_control_pub_.publish(manual_control_msg);
 
-            computeStickControl();
+            // computeStickControl();
+            computeAttitudeStick();
         }
         else
         {
@@ -275,6 +310,30 @@ void ProportionalNavigationNode::boundboxCallback(const darknet_ros_msgs::Boundi
     }
 }
 
+void ProportionalNavigationNode::imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
+{
+    imu_acc_(0) = msg->linear_acceleration.x;
+    imu_acc_(1) = msg->linear_acceleration.y;
+    acc_z_ = msg->linear_acceleration.z;
+
+    // 解析 IMU 角速度
+    omega_actual_(0) = msg->angular_velocity.x;
+    omega_actual_(1) = msg->angular_velocity.y;
+    omega_actual_(2) = msg->angular_velocity.z;
+
+    // 解析四元数并转换为旋转矩阵 R
+    tf2::Quaternion q(
+        msg->orientation.x,
+        msg->orientation.y,
+        msg->orientation.z,
+        msg->orientation.w);
+    tf2::Matrix3x3 m(q);
+
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j)
+            R_actual_(i, j) = m[i][j]; // 转换到 Eigen 旋转矩阵
+}
+
 void ProportionalNavigationNode::odomCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
     // 提取ENU坐标系下的位置 (从msg.pose.pose.position)
@@ -324,7 +383,7 @@ bool ProportionalNavigationNode::setOffboardAndArm()
 {
     // 设置 OFFBOARD 模式
     mavros_msgs::SetMode set_mode_req;
-    set_mode_req.request.custom_mode = "ALTCTL";
+    set_mode_req.request.custom_mode = "MANUAL";
 
     if (set_mode_client_.call(set_mode_req) && set_mode_req.response.mode_sent)
     {
@@ -477,6 +536,114 @@ void ProportionalNavigationNode::publishAttitude(float roll, float pitch, float 
 
     // // 发布消息
     attitude_pub_.publish(attitude_msg);
+}
+
+VectorXd ProportionalNavigationNode::predict(Vector2d imu_acc)
+{
+    x = A * x + B * imu_acc;       // 预测状态
+    P = A * P * A.transpose() + Q; // 预测协方差
+    return x.head(2);              // 仅返回位置
+}
+
+VectorXd ProportionalNavigationNode::update(Vector2d z)
+{
+    VectorXd y = z - H * x; // 计算残差
+    MatrixXd S = H * P * H.transpose() + R;
+    MatrixXd K = P * H.transpose() * S.inverse(); // 计算 Kalman 增益
+    x = x + K * y;                                // 更新状态
+    P = (MatrixXd::Identity(6, 6) - K * H) * P;   // 更新协方差
+    return x.head(2);                             // 返回更新后的位置
+}
+
+void ProportionalNavigationNode::computeAttitudeStick()
+{
+    if (boundingbox_updated_ && boundingbox_.probability > 0.2)
+    {
+        // TODO From topics
+        double rows = 480;
+        double cols = 640;
+
+        double frame_center_x = (boundingbox_.xmin + boundingbox_.xmax) / 2.0;
+        double frame_center_y = (boundingbox_.ymin + boundingbox_.ymax) / 2.0;
+
+        // // Calculate control signals
+        // double dx = target_center_x_ - frame_center_x;
+        // double dy = target_center_y_ - frame_center_y;
+        Vector2d bbox_center(frame_center_x, frame_center_y);
+        Vector2d pred_pos = predict(imu_acc_);
+        Vector2d est_pos = update(bbox_center);
+        std::cout << "est_pos-x: " << est_pos(0) << "est_pos-y: " << est_pos(1) << std::endl;
+
+        double theta_x = -(est_pos(0) - target_center_x_) / 320.0 * (M_PI / 3);
+        double theta_y = -(est_pos(1) - target_center_y_) / 240.0 * (M_PI / 4);
+
+        // 计算 PID 输出
+        // omega_x_ = pid_x_.compute(theta_x);
+        // omega_y_ = pid_y_.compute(theta_y);
+        omega_x_ = Kp_pitch_roll_ * theta_x;
+        omega_y_ = Kp_pitch_roll_ * theta_y;
+
+        double K_R = 2.0;
+        double K_W = 0.5; // 姿态控制增益
+        Matrix3d R_d = Matrix3d::Identity();
+        // omega_d_ = so3_.compute(omega_actual_, R_actual_, R_d);
+        // 计算姿态误差 e_R
+        Matrix3d error_matrix = 0.5 * (R_d.transpose() * R_actual_ - R_actual_.transpose() * R_d);
+        Vector3d e_R(error_matrix(2, 1), error_matrix(0, 2), error_matrix(1, 0));
+
+        // 计算角速度误差 e_W
+        Vector3d e_W = omega_actual_; // 这里假设 omega_d = 0, 你可以改成 omega_d - omega_actual
+
+        // 计算 SO(3) 控制律
+        omega_d_ = -K_R * e_R - K_W * e_W;
+
+        // std::cout << "omega_d_.x: " << omega_d_(0) << "omega_d_.y: " << omega_d_(1)
+        //           << "omega_d_.z: " << omega_d_(2) << std::endl;
+        mavros_msgs::ManualControl manual_control_msg;
+        manual_control_msg.header.stamp = ros::Time::now();
+
+        // 将计算出的roll, pitch, yaw, thrust 转换为手动控制信号
+        if (joy_updated_)
+        {
+            manual_control_msg.x = joy_.axes[4] * 1000.f;               // （pitch)
+            manual_control_msg.y = -joy_.axes[3] * 1000.f;              // （roll)
+            manual_control_msg.z = (joy_.axes[1] + 1.f) / 2.f * 1000.f; // (thrust）
+            manual_control_msg.r = -joy_.axes[0] * 1000.f;              // （yaw)
+
+            // 计算所需的推力（假设z轴向上的正方向）
+            double thrust = thrust_prev_ + 0.1 * ((acc_z_ + 9.81) / 9.81); // 基于重力补偿推力
+            thrust = std::clamp(thrust, 0.2, 1.0);                         // 限制推力范围，防止过大或过小
+            manual_control_msg.z = thrust * 1000.f;
+
+            thrust_prev_ = thrust;
+            std::cout << "**********thrust: " << thrust << std::endl;
+
+            manual_control_pub_.publish(manual_control_msg);
+        }
+
+        // // 将计算出的roll, pitch, yaw, thrust 转换为手动控制信号
+        // manual_control_msg.x = pitch_input * 1000.f;  // （pitch）
+        // manual_control_msg.y = roll_input * 1000.f;   // （roll）
+        // manual_control_msg.z = thrust_input * 1000.f; // （thrust）
+        // manual_control_msg.r = yaw_input * 1000.f;    // （yaw)
+
+        // manual_control_pub_.publish(manual_control_msg);
+    }
+    else
+    {
+        mavros_msgs::ManualControl manual_control_msg;
+        manual_control_msg.header.stamp = ros::Time::now();
+
+        // 将计算出的roll, pitch, yaw, thrust 转换为手动控制信号
+        if (joy_updated_)
+        {
+            manual_control_msg.x = joy_.axes[4] * 1000.f;               // （pitch)
+            manual_control_msg.y = -joy_.axes[3] * 1000.f;              // （roll)
+            manual_control_msg.z = (joy_.axes[1] + 1.f) / 2.f * 1000.f; // (thrust）
+            manual_control_msg.r = -joy_.axes[0] * 1000.f;              // （yaw)
+            manual_control_pub_.publish(manual_control_msg);
+        }
+    }
 }
 
 void ProportionalNavigationNode::computeStickControl()

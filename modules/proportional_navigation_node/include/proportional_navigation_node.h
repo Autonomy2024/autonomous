@@ -17,6 +17,14 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <darknet_ros_msgs/BoundingBoxes.h>
 
+#include <sensor_msgs/Imu.h>
+
+#include "pidController.h"
+#include "so3Controller.h"
+
+using namespace Eigen;
+using namespace std;
+
 class ProportionalNavigationNode
 {
 public:
@@ -32,15 +40,21 @@ private:
     void joyCallback(const sensor_msgs::Joy::ConstPtr &msg);
     void boundboxCallback(const darknet_ros_msgs::BoundingBoxes::ConstPtr &msg);
     void odomCallback(const nav_msgs::Odometry::ConstPtr &msg);
+    void imuCallback(const sensor_msgs::Imu::ConstPtr &msg);
+
     void publishSetpoint(const Eigen::Vector3f &velocity, const Eigen::Vector3f &current_pos, const Eigen::Vector3f &target_pos);
     void publishAttitude(float roll, float pitch, float yaw, float thrust);
     void computeStickControl();
+    void computeAttitudeStick();
 
     bool setOffboardAndArm();
     float calculateYaw(const Eigen::Vector3f &current_pos, const Eigen::Vector3f &target_pos);
 
     geometry_msgs::TwistStamped computeProportionalNavigation();
     mavros_msgs::ManualControl computeAttitudeControl();
+
+    VectorXd predict(Vector2d imu_acc);
+    VectorXd update(Vector2d z);
 
     ros::NodeHandle nh_;
     ros::Publisher velocity_pub_;
@@ -55,6 +69,7 @@ private:
     ros::Subscriber odom_sub_;
     ros::Subscriber rc_sub_;
     ros::Subscriber bbox_sub_;
+    ros::Subscriber imu_sub_;
 
     ros::ServiceClient set_mode_client_;
     ros::ServiceClient arming_client_;
@@ -82,6 +97,9 @@ private:
     Eigen::Quaternionf drone_orientation_; // 使用Eigen的四元数表示姿态
     Eigen::Vector3f drone_rpy_;
 
+    float thrust_prev_ = 0.5f;
+    float acc_z_;
+
     double Kp_yaw_, Kp_thrust_, Kp_pitch_roll_;
     double target_center_x_, target_center_y_; // height * width (480 * 640)
 
@@ -95,4 +113,25 @@ private:
     double prev_pitch_input_ = 0.0;
     double prev_yaw_input_ = 0.0;
     double prev_thrust_input_ = 0.5;
+
+    double omega_x_, omega_y_; // 角速度
+    double dt = 0.02;
+    MatrixXd A = MatrixXd(6, 6);
+    MatrixXd B = MatrixXd(6, 2);
+    MatrixXd H = MatrixXd(2, 6);
+    MatrixXd Q = MatrixXd(6, 6);
+    MatrixXd R = MatrixXd(2, 2);
+    VectorXd x = VectorXd(6);
+    MatrixXd P = MatrixXd(6, 6);
+
+    Matrix3d R_actual_ = Matrix3d::Identity(); // 实际姿态
+    Vector3d omega_actual_ = Vector3d::Zero(); // 实际角速度
+    Vector2d imu_acc_ = Vector2d::Zero();      // 实际加速度
+
+    // PID 控制器（用于控制目标的角速度）
+    // PIDController pid_x_;
+    // PIDController pid_y_;
+    // SO3Controller so3_;
+
+    Vector3d omega_d_;
 };
