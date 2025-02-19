@@ -140,6 +140,7 @@ ProportionalNavigationNode::ProportionalNavigationNode()
     arming_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("iris_0/mavros/cmd/arming");
 
     target_ned_.Zero();
+    target_ned_(2) = -0.8f;
 
     // Control gains
     Kp_yaw_ = 0.5;        // Proportional gain for yaw
@@ -200,6 +201,16 @@ void ProportionalNavigationNode::run()
             // manual_control_pub_.publish(manual_control_msg);
 
             computeStickControl();
+
+            // STEP: Use vel
+            // 计算并发布速度指令
+            // geometry_msgs::TwistStamped cmd_vel = computeProportionalNavigation();
+            // velocity_pub_.publish(cmd_vel);
+
+            // Eigen::Vector3f current_pos(current_position_.pose.position.x, current_position_.pose.position.y, current_position_.pose.position.z);
+            // Eigen::Vector3f velocity_sp(cmd_vel.twist.linear.x, cmd_vel.twist.linear.y, cmd_vel.twist.linear.z);
+
+            // publishSetpoint(velocity_sp, current_pos, target_ned_);
         }
         else
         {
@@ -217,15 +228,6 @@ void ProportionalNavigationNode::run()
                 manual_control_pub_.publish(manual_control_msg);
             }
         }
-
-        // 计算并发布速度指令
-        // geometry_msgs::TwistStamped cmd_vel = computeProportionalNavigation();
-        // velocity_pub_.publish(cmd_vel);
-
-        // Eigen::Vector3f current_pos(current_position_.pose.position.x, current_position_.pose.position.y, current_position_.pose.position.z);
-        // Eigen::Vector3f velocity_sp(cmd_vel.twist.linear.x, cmd_vel.twist.linear.y, cmd_vel.twist.linear.z);
-
-        // publishSetpoint(velocity_sp, current_pos, target_ned_);
 
         ros::spinOnce();
         rate.sleep();
@@ -370,7 +372,8 @@ geometry_msgs::TwistStamped ProportionalNavigationNode::computeProportionalNavig
     double ty = target_ned_.y();
     double tz = target_ned_.z();
 
-    // 计算相对位置和距离
+    // 计算相对位置和距离uble lambda_dot_x = dx / distance;
+    double lambda_dot_y = dy / distance;
     double dx = tx - ux;
     double dy = ty - uy;
     double dz = tz - uz;
