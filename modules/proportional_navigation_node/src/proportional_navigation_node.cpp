@@ -372,8 +372,7 @@ geometry_msgs::TwistStamped ProportionalNavigationNode::computeProportionalNavig
     double ty = target_ned_.y();
     double tz = target_ned_.z();
 
-    // 计算相对位置和距离uble lambda_dot_x = dx / distance;
-    double lambda_dot_y = dy / distance;
+    // 计算相对位置和距离
     double dx = tx - ux;
     double dy = ty - uy;
     double dz = tz - uz;
