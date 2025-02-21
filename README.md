@@ -23,7 +23,7 @@ sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
 ```
 
-#### 安装引导程序依赖项
+#### Install bootstrapper dependencies
 
 Mainly a series of tools for source code installation, such as rosdep and vcstools.
 
@@ -106,7 +106,7 @@ gbpdistro https://raw.githubusercontent.com/ros/rosdistro/master/releases/fuerte
 # newer distributions (Groovy, Hydro, ...) must not be listed anymore, they are being fetched from the rosdistro index.yaml instead
 ```
 
-#### 更新rosdep
+#### Update rosdep
 
 ```bash
 rosdep update
@@ -114,9 +114,9 @@ rosdep update
 
 It may take some time (you need to connect to GitHub). You can consider modifying the hosts file or other methods to help you connect to GitHub. Please refer to them for details.
 
-#### 正式安装
+#### Formal installation
 
-#### 创建catkin工作区
+Create catkin workspace
 
 It is mainly used to store the source code workspace for installing ROS.
 
@@ -133,7 +133,7 @@ mkdir ./src
 vcs import --input noetic-desktop.rosinstall ./src
 ```
 
-#### 解决依赖问题
+#### Resolve dependency issues
 
 The installation of the ROS package may depend on each other. If there is no system dependency, it cannot be used. You need to use the rosdep tool to automatically detect and install the corresponding [dependent files](https://zhida.zhihu.com/search?content_id=241111139&content_type=Article&match_order=1&q=依赖文件&zhida_source=entity)
 
@@ -143,7 +143,7 @@ The installation of the ROS package may depend on each other. If there is no sys
 rosdep install --from-paths ./src --ignore-packages-from-source --rosdistro noetic -y
 ```
 
-#### 解决兼容问题
+Resolve compatibility issues
 
 Before building ros1 noetic, we need to manually patch two packages in SRC folder to be compatible with ubuntu22.04:
 
@@ -190,7 +190,7 @@ source ~/ros_catkin_ws/install_isolated/setup.bash
 
 You can directly write the source command to bashrc to avoid updating every time you use it.
 
-#### 其他
+#### Other
 
 The installed version of ros1 desktop full does not fully include the required ROS packages, which may need to be installed separately. For example, octomap, mavros, and so on. The installation method under ubuntu20 is:
 
@@ -220,11 +220,11 @@ rosinstall_generator mavros --rosdistro noetic --deps --tar > noetic-packages.ro
 vcs import --input noetic-packages.rosinstall ./src
 ```
 
-#### 替换rosconsole和urdf
+#### Replace rosconsole和urdf
 
 The newly generated package file may have dependencies on rosconsole and URDF. Please refer to the section on solving dependency problems in this article for replacement.
 
-#### 安装
+#### Install
 
 ```bash
 ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release
@@ -306,7 +306,7 @@ sudo ./install_geographiclib_datasets.sh
 
 Because the order in which Gazebo looks for models is to search in .gazebo/models/ first, and then search in other paths, so when copying models to PX4 SITL, pay attention to whether there is a file with the same name under .gazebo/models/ (such as  stereo_camera) , if any, either delete the file with the same name, or replace the file with the same name.
 
-#### 1.4 Update some gazebo models
+### 1.4 Update some gazebo models
 
 Unzip models.zip to ~/.gazebo, Now you can see many gazebo models in ~/.gazebo/models/
 
@@ -319,9 +319,7 @@ cd ~/.gazebo/models/
 rm -r stereo_camera/ 3d_lidar/ 3d_gpu_lidar/ hokuyo_lidar/
 ```
 
-
-
-#### 1.5 VIO tools update
+### 1.5 VIO tools update
 
 update nvidia-cuda:
 
@@ -352,7 +350,7 @@ make
 sudo make install
 ```
 
-#### 1.6 update ground station(QroundControl)
+### 1.6 update ground station(QroundControl)
 
  Download QGroundControl.AppImage from this link: https://github.com/mavlink/qgroundcontrol/releases
 
@@ -363,7 +361,7 @@ chmod +x  QGroundControl.AppImage
 ./QGroundControl,AppImage
 ```
 
-#### 1.7 compile and running autonomous 
+### 1.7 compile and running autonomous 
 
 compile autonomous project:
 
@@ -395,7 +393,7 @@ roslaunch px4 mavros_posix_sitl.launch
 
 ![Only for test envirments](./images/Screenshot from 2024-12-19 14-51-46.png)
 
-#### 1.8 running VIO:
+### 1.8 running VIO:
 
 running flight control sim:
 
@@ -436,9 +434,7 @@ Now you can use virtual joystick or Xbox360 joystick to arm and fly the drone.
 
 You can see the display of the aircraft’s trajectory in rviz
 
-
-
-#### 1.9 running Radar inertial odometery (RIO)
+### 1.9 running Radar inertial odometery (RIO)
 
 running flight control sim:
 
@@ -471,3 +467,43 @@ Now you can use virtual joystick or Xbox360 joystick to arm and fly the drone.
 You can see the display of the drone’s trajectory in rviz
 
 ![rio trajectory](./images/Screenshot from 2024-12-19 15-27-56.png)
+
+### 1.10 running terminal guidance practice
+
+This is an exercise simulating the terminal guidance of FPV UAV. The UAV has no position information, and only  have a fixed camera and IMU, Baro sensor
+
+  This summary mainly focuses on the simulation practice of a drone attack a  car. The result of running this practice is that the environment settings above have been completed by default.
+
+Connect your Xbox360 remote control handle to the computer before starting verification
+
+compile and running:
+
+open a new ternimal:
+
+```
+cd ~/catkin_ws/
+catkin_make or catkin build
+cd ~/catkin_ws/src/autonomous/scripts
+bash running_attack.sh
+```
+
+drone armming:
+
+open a new ternimal:
+
+```
+rosservice call /iris_0/mavros/cmd/arming "value: true" 
+```
+
+![attack](./images/attack.png)
+
+It can fly freely to ensure that the vehicle can be seen in the UAV video screen, then select the target vehicle with the mouse box, press the space bar, and start image tracking
+
+
+
+![Screenshot from 2025-02-21 15-15-12](./images/Screenshot from 2025-02-21 15-15-12.png)
+
+
+
+Finally, press button A on the remote control to start automatic attack.
+
