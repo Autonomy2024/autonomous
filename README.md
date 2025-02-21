@@ -471,3 +471,39 @@ Now you can use virtual joystick or Xbox360 joystick to arm and fly the drone.
 You can see the display of the drone’s trajectory in rviz
 
 ![rio trajectory](./images/Screenshot from 2024-12-19 15-27-56.png)
+
+### 1.10  running terminal guidance practice
+
+This is an exercise simulating the terminal guidance of FPV UAV. The UAV has no position
+information, and only have a fixed camera and IMU, Baro sensor.
+
+This summary mainly focuses on the simulation practice of a drone attack a car. The result of
+running this practice is that the environment settings above have been completed by default.
+
+Connect your Xbox360 remote control handle to the computer before starting verification
+
+compile and running:
+open a new ternimal:
+
+```
+cd ~/catkin_ws/
+catkin_make or catkin build
+cd ~/catkin_ws/src/autonomous/scripts
+bash running_attack.sh
+```
+
+![Screenshot from 2025-02-21 15-07-14](./images/Screenshot from 2025-02-21 15-07-14.png)
+
+drone armming:
+open a new ternimal:
+
+```
+rosservice call /iris_0/mavros/cmd/arming "value: true"
+```
+
+It can fly freely to ensure that the vehicle can be seen in the UAV video screen, then select the
+target vehicle with the mouse box, press the space bar, and start image tracking
+
+![Screenshot from 2025-02-21 15-15-12](./images/Screenshot from 2025-02-21 15-15-12.png)
+
+Finally, press button A on the remote control to start automatic attack.
