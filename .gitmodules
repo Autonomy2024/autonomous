@@ -8,3 +8,6 @@
 	path = driver/mavros
 	url = git@github.com:Autonomy2024/mavros.git
 	branch = demo_sitl
+[submodule "modules/light_track_ros"]
+	path = modules/light_track_ros
+	url = git@github.com:ApexPilot2024/light_track_ros.git

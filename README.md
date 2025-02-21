@@ -2,20 +2,22 @@ Simulation Guide
 
 ## 1. install
 
-### 1.1 ROS1 install
+### 1.1 ROS1 install (Ubuntu 22.04)
 
  This is a step-by--step guide to install and build all the prerquisties for running the  simulation on Ubuntu 22.04 with ROS noetic(include Gazebo 11)
 
  You might want to skip some steps if your system is already partially installed.
 
-#### 添加ROS2 GPG密钥
+ Note: If you are a Ubuntu 20.04 system, please refer to the project_partice documentation to update the ros1 system
+
+#### Add ros GPG key
 
 ```bash
 sudo apt update && sudo apt install curl -y
 sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
 ```
 
-#### 添加官方仓库
+#### Add official warehouse
 
 ```bash
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
@@ -23,19 +25,19 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-a
 
 #### 安装引导程序依赖项
 
-主要是rosdep、vcstools等一系列用于源码安装的工具。  
+Mainly a series of tools for source code installation, such as rosdep and vcstools.
 
 ```bash
 sudo apt-get install python3-rosdep2 python3-rosinstall-generator python3-vcstools python3-vcstool build-essential
 ```
 
-初始化rosdep。  
+Initialize rosdep.
 
 ```bash
 sudo rosdep init
 ```
 
-#### 安装hddtemp
+#### Install hddtemp
 
 ```bash
 cd ~/Downloads
@@ -43,22 +45,22 @@ wget http://archive.ubuntu.com/ubuntu/pool/universe/h/hddtemp/hddtemp_0.3-beta15
 sudo apt install ~/Downloads/hddtemp_0.3-beta15-53_amd64.deb
 ```
 
-#### 修改rosdep初始化文件
+#### Modify rosdep initialization file
 
-下载base.yaml文件。  
+Download the base.yaml file.
 
 ```bash
 d ~/Downloads
 wget https://raw.githubusercontent.com/ros/rosdistro/master/rosdep/base.yaml
 ```
 
-打开base.yaml文件，Ubuntu22可以使用gedit修改。  
+Open the base.yaml file, and ubuntu22 can be modified using GEDIT.
 
 ```bash
 gedit ~/Downloads/base.yaml
 ```
 
-搜索hddtemp，在ubuntu那一部分，添加上ubuntu22（最后一行，jammy那一行）的内容，如下所示：
+Search hddtemp and add ubuntu22 (the last line, the line of Jimmy) in the Ubuntu section, as shown below:
 
 ```yaml
 hddtemp:
@@ -80,15 +82,15 @@ hddtemp:
     jammy: [hddtemp]
 ```
 
-#### 修改20-default.list文件内容
+#### Modify the contents of 20-default.list file
 
-修改`Rosdep init`创建的20-default.list文件内容，使其读取**本地的base.yaml文件**。  
+Modify the contents of the 20-default.list file created by 'rosdep init' to read the * * local base.yaml file * *.
 
 ```bash
 sudo gedit /etc/ros/rosdep/sources.list.d/20-default.list
 ```
 
-修改为如下内容：  
+Amend to read as follows:
 
 ```yaml
 # os-specific listings first
@@ -96,8 +98,6 @@ yaml https://raw.githubusercontent.com/ros/rosdistro/master/rosdep/osx-homebrew.
 
 # generic
 # yaml https://raw.githubusercontent.com/ros/rosdistro/master/rosdep/base.yaml
-# 确保下面的base文件路径和你的保存位置一致，前缀file://即为读取本地文件，/home/your_usernme/需要根据你的设置进行修改
-# 也可以移动base.yaml文件到你需要的地方，保证下面的位置是你移动的位置即可
 yaml file:///home/your_username/Downloads/base.yaml
 yaml https://raw.githubusercontent.com/ros/rosdistro/master/rosdep/python.yaml
 yaml https://raw.githubusercontent.com/ros/rosdistro/master/rosdep/ruby.yaml
@@ -112,20 +112,20 @@ gbpdistro https://raw.githubusercontent.com/ros/rosdistro/master/releases/fuerte
 rosdep update
 ```
 
-可能会需要一定时间（需要连接到Github），可以考虑修改hosts文件，抑或其他帮助连接Github的方法，具体请自行查阅。  
+It may take some time (you need to connect to GitHub). You can consider modifying the hosts file or other methods to help you connect to GitHub. Please refer to them for details.
 
 #### 正式安装
 
 #### 创建catkin工作区
 
-主要用于存放安装Ros的源码工作区。  
+It is mainly used to store the source code workspace for installing ROS.
 
 ```bash
 mkdir ~/ros_catkin_ws
 cd ~/ros_catkin_ws
 ```
 
-安装Desktop full版本，更全面一点，代码如下：  
+Install the desktop full version, which is more comprehensive. The code is as follows:
 
 ```bash
 rosinstall_generator desktop_full --rosdistro noetic --deps --tar > noetic-desktop.rosinstall
@@ -135,7 +135,7 @@ vcs import --input noetic-desktop.rosinstall ./src
 
 #### 解决依赖问题
 
-安装Ros包可能有相互依赖的情况，如果缺少系统依赖则无法使用，需要使用rosdep工具自动检测并安装相应的[依赖文件](https://zhida.zhihu.com/search?content_id=241111139&content_type=Article&match_order=1&q=依赖文件&zhida_source=entity)
+The installation of the ROS package may depend on each other. If there is no system dependency, it cannot be used. You need to use the rosdep tool to automatically detect and install the corresponding [dependent files](https://zhida.zhihu.com/search?content_id=241111139&content_type=Article&match_order=1&q=依赖文件&zhida_source=entity)
 
 。  
 
@@ -145,17 +145,17 @@ rosdep install --from-paths ./src --ignore-packages-from-source --rosdistro noet
 
 #### 解决兼容问题
 
-构建Ros1 Noetic之前，我们需要手动修补src文件夹中的两个包，以兼容Ubuntu22.04：
+Before building ros1 noetic, we need to manually patch two packages in SRC folder to be compatible with ubuntu22.04:
 
-- rosconsole：Ros的控制台日志记录使用程序
-- urdf：统一机器人描述格式（URDF）文件的解析器
+- rosconsole：ROS console logging application
+- urdf：Parser of unified Robot Description Format (URDF) file
 
-相关的修补程序在Github上有开源实现，作者[Daniel Reuter](https://link.zhihu.com/?target=https%3A//github.com/dreuter)，参考链接：
+The related patches are open source implemented on GitHub, the author[Daniel Reuter](https://link.zhihu.com/?target=https%3A//github.com/dreuter)reference link:
 
 - [GitHub — dreuter/rosconsole](https://link.zhihu.com/?target=https%3A//github.com/dreuter/rosconsole/tree/noetic-jammy)
 - [GitHub — dreuter/urdf](https://link.zhihu.com/?target=https%3A//github.com/dreuter/urdf/tree/set-cxx-version)
 
-使用Github上的修改包直接替换初始源码包。  
+Use the modified package on GitHub to directly replace the original source package.  
 
 ```bash
 cd ~/ros_catkin_ws
@@ -174,33 +174,33 @@ cd ..
 cp urdf ./src -rf
 ```
 
-#### 构建Ros1 Noetic
+#### Build ros1 noetic
 
-使用`catkin_make_isolated`命令构建Ros1 Noetic，并安装  
+Use 'catkin_make_isolated' command to build ros1 noetic and install
 
 ```bash
 ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release
 ```
 
-Ros1将会自动安装到所设置的catkin工作区中的install_isolated文件夹中，更新后即可正常使用Ros1了！  
+Ros1 will be automatically installed in the install_isolated folder in the set catkin workspace. After updating, ros1 can be used normally!
 
 ```bash
 source ~/ros_catkin_ws/install_isolated/setup.bash
 ```
 
-可以直接将source命令写入bashrc中，避免每次使用时都需要更新。  
+You can directly write the source command to bashrc to avoid updating every time you use it.
 
 #### 其他
 
-安装的Ros1 Desktop full版本并非完全包含所需要的Ros packages，可能还需要单独安装包。例如octomap、mavros等等。在Ubuntu20下安装方式为：  
+The installed version of ros1 desktop full does not fully include the required ROS packages, which may need to be installed separately. For example, octomap, mavros, and so on. The installation method under ubuntu20 is:
 
 ```bash
 sudo apt install ros-noetic-octomap ros-noetic-mavros
 ```
 
-但从源码安装Ros1，相应的包也需要源码安装。过程如下。  
+when installing ros1 from the source code, the corresponding package also needs to be installed from the source code. The process is as follows.
 
-#### 生成包文件并自动下载依赖
+#### Generate package files and automatically download dependencies
 
 ```bash
 cd ~/ros_catkin_ws
@@ -208,11 +208,11 @@ rosinstall_generator package1 package2 --rosdistro noetic --deps --tar > noetic-
 vcs import --input noetic-packages.rosinstall ./src
 ```
 
-package1和package2的位置替换为需要安装的包即可，注意不需要添加ros-noetic-的内容，也可以继续在后面放更多的包以一次性安装，但是个人建议还是单独安装比较稳妥(因为Github连接问题，vcs下载包的方式会导致必须所有依赖项都正确下载才能正常编译)。
+The location of Package1 and package2 can be replaced by the packages that need to be installed. Note that there is no need to add ROS noetic- content. You can also continue to put more packages in the back for one-time installation, but it is safer to install them separately (because of the GitHub connection problem, the way VCS downloads packages will cause that all dependencies must be downloaded correctly to compile normally).
 
-哪怕第一次依赖A下载成功，依赖B失败，第二次依赖B成功，依赖A失败，两次结合起来，看似A和B都成功了，但实际上在第二次下载开始时，vcs工具会删除所有依赖。因此下载必须全部成功才行。
+Even if the first download of dependency a succeeds and dependency B fails, the second download of dependency B succeeds and dependency a fails. Combined, it seems that both a and B succeed, but in fact, at the beginning of the second download, the VCs tool will delete all dependencies. Therefore, all downloads must be successful.
 
-以 mavros 举例，安装方式为：  
+Take mavros for example, the installation method is:
 
 ```bash
 cd ~/ros_catkin_ws
@@ -222,7 +222,7 @@ vcs import --input noetic-packages.rosinstall ./src
 
 #### 替换rosconsole和urdf
 
-新生成的包文件可能对 rosconsole 和 urdf 存在依赖，参考本文解决依赖问题部分进行替换即可。
+The newly generated package file may have dependencies on rosconsole and URDF. Please refer to the section on solving dependency problems in this article for replacement.
 
 #### 安装
 
@@ -230,8 +230,7 @@ vcs import --input noetic-packages.rosinstall ./src
 ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release
 source ~/ros_catkin_ws/install_isolated/setup.bash
 ```
-在编译mavros时，遇到报错缺少future包，需要手动安装 pip install future
-
+When compiling mavros, an error is reported and the future package is missing. You need to manually install PIP install future
 
 ### 1.2  Autopilot install
 
@@ -322,7 +321,7 @@ rm -r stereo_camera/ 3d_lidar/ 3d_gpu_lidar/ hokuyo_lidar/
 
 
 
-#### 1.6 VIO tools update
+#### 1.5 VIO tools update
 
 update nvidia-cuda:
 
@@ -353,18 +352,18 @@ make
 sudo make install
 ```
 
-#### 1.5  compile and running 
+#### 1.6 update ground station(QroundControl)
 
-Add this to ~/.bashrc
+ Download QGroundControl.AppImage from this link: https://github.com/mavlink/qgroundcontrol/releases
 
-```
-gedit ~/.bashrc
-# Add this source in .bashrc
-source /YOUR_PATH/Tools/setup_gazebo.bash /YOUR_PATH/ /YOUR_PATH/build/px4_sitl_default
-export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/YOUR_PATH
-export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:/YOUR_PATH/Tools/sitl_gazebo
+and then give executable permissions
 
 ```
+chmod +x  QGroundControl.AppImage
+./QGroundControl,AppImage
+```
+
+#### 1.7 compile and running autonomous 
 
 compile autonomous project:
 
@@ -376,28 +375,27 @@ cd ~/catkin_ws/
 catkin_make or catkin build
 ```
 
-Add this source in ~/.bashrc
+Add this source to ~/.bashrc
 
 ```
 gedit ~/.bashrc
-
+# Add this source in .bashrc
 source ~/catkin_ws/devel/setup.bash
+source ~/PX4_Firmware/Tools/setup_gazebo.bash ~/PX4_Firmware/ ~/PX4_Firmware/build/px4_sitl_default
+export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:~/PX4_Firmware
+export ROS_PACKAGE_PATH=$ROS_PACKAGE_PATH:~/PX4_Firmware/Tools/sitl_gazebo
 ```
 
-run:
+running test:
 
 ```
 source ~/.bashrc
 roslaunch px4 mavros_posix_sitl.launch
 ```
 
-or run:
+![Only for test envirments](./images/Screenshot from 2024-12-19 14-51-46.png)
 
-```
-roslaunch px4 lidar_camera.launch
-```
-
-running VIO:
+#### 1.8 running VIO:
 
 running flight control sim:
 
@@ -411,31 +409,65 @@ open a new terminal, running vio:
 bash ~/catkin_ws/src/autonomous/scripts/drone_run_vio.sh
 ```
 
+![running vio](./images/Screenshot from 2024-12-19 15-14-32.png)
+
 open a new terminal, transfer vio data to mavros and fcs:
 
 ```
 cd ~/catkin_ws/src/autonomous/scripts
-python vins_transfer.py iris 0
+python3 vins_transfer.py iris 0
 ```
 
- or running RIO:
+![transfer odometry data](./images/Screenshot from 2024-12-19 15-13-42.png)
+
+disable fuse gps, use qgroundcontrol set param ekf2_aid_mask to 24
+
+![fuse vio](./images/Screenshot from 2024-12-19 15-15-44.png)
+
+And also need to set param:
+
+MPC_VEL_MANUAL 10
+
+EKF2_EVP_NOISE 0.3
+
+EKF2_EVV_NOISE 0.1
+
+Now you can use virtual joystick or Xbox360 joystick to arm and fly the drone.
+
+You can see the display of the aircraft’s trajectory in rviz
+
+
+
+#### 1.9 running Radar inertial odometery (RIO)
+
+running flight control sim:
 
 ```
-bash src/autonomous/scripts/run_rio.sh
+roslaunch px4 lidar_camera.launch
 ```
 
-
-
-#### 1.6 update ground station(QroundControl)
-
- Download QGroundControl.AppImage from this link: https://github.com/mavlink/qgroundcontrol/releases
-
-and then give executable permissions
+running rio
 
 ```
-chmod +x  QGroundControl.AppImage
-./QGroundControl,AppImage
+bash ~/catkin_ws/src/autonomous/scripts/run_rio.sh
 ```
 
-NOTE: If you want to disable fuse gps, and only use vio to fuse , you can set ekf2_aid_mask  to 24. if you use RIO to fuse, you can set ekf2_aid_mask  to 256
+![Running Rio](./images/Screenshot from 2024-12-19 15-27-19.png)
 
+disable fuse gps, use qgroundcontrol set param ekf2_aid_mask to 256
+
+![fusion rio](./images/Screenshot from 2024-12-19 15-15-58.png)
+
+And also need to set param:
+
+MPC_VEL_MANUAL 5
+
+EKF2_EVP_NOISE 0.8
+
+EKF2_EVV_NOISE 0.5
+
+Now you can use virtual joystick or Xbox360 joystick to arm and fly the drone.
+
+You can see the display of the drone’s trajectory in rviz
+
+![rio trajectory](./images/Screenshot from 2024-12-19 15-27-56.png)
