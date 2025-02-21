@@ -76,21 +76,21 @@ private:
     Eigen::Vector3f target_ned_;
     Eigen::Vector3f target_velocity_;
 
-    // 用于存储无人机的位置、速度和姿态
+    // Used to store the UAV's position, velocity, and attitude
     Eigen::Vector3f drone_position_;
     Eigen::Vector3f drone_velocity_;
-    Eigen::Quaternionf drone_orientation_; // 使用Eigen的四元数表示姿态
+    Eigen::Quaternionf drone_orientation_; // Using Eigen quaternion for attitude representation
     Eigen::Vector3f drone_rpy_;
 
     double Kp_yaw_, Kp_thrust_, Kp_pitch_roll_;
     double target_center_x_, target_center_y_; // height * width (480 * 640)
 
-    // 低通滤波参数
-    const double alpha_min_ = 0.1;   // 平滑性高，适用于小误差
-    const double alpha_max_ = 0.15;  // 响应快，适用于大误差
-    const double max_error_ = 200.0; // 误差归一化阈值
+    // Low-pass filter parameters
+    const double alpha_min_ = 0.1;   // High smoothness, suitable for small errors
+    const double alpha_max_ = 0.15;  // Quick response, suitable for large errors
+    const double max_error_ = 200.0; // Error normalization threshold
 
-    // 变量用于存储前一帧的控制输入
+    // Variables to store the control input from the previous frame
     double prev_roll_input_ = 0.0;
     double prev_pitch_input_ = 0.0;
     double prev_yaw_input_ = 0.0;

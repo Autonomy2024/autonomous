@@ -1,15 +1,15 @@
 #include "proportional_navigation_node.h"
 
-// 定义常量
+// Define constants
 #define GRAVITY 9.81f
-#define MAX_TILT_ANGLE 0.174f              // 10度，最大倾斜角度
+#define MAX_TILT_ANGLE 0.174f              // 10 degrees, maximum tilt angle
 #define MAN_TILT_MAX (35.f / (180 / M_PI)) // Maximal tilt angle in manual or altitude mode
 #define MAN_YAW_MAX (150.f / (180 / M_PI)) // Max manual yaw rate
 
-// 将航向角规范化到 [-π, π]
+// Normalize yaw angle to [-π, π]
 double normalizeYaw(double yaw)
 {
-    // 使用模运算将角度限制在 [-π, π]
+    // Use modulo operation to limit the angle to [-π, π]
     yaw = fmod(yaw + M_PI, 2 * M_PI);
     if (yaw < 0)
     {
@@ -17,15 +17,16 @@ double normalizeYaw(double yaw)
     }
     return yaw - M_PI;
 }
+
 /**********************************************************
- *@File name:map_projection_project
- *@param[ref_lat]: double ，原点lat坐标
- *@param[ref_lon]: double，原点lon坐标
- *@param[lat]: double，相对lat坐标
- *@param[lon]: double，相对lon坐标
- *@param[x]: float，转换的enu的x坐标
- *@param[y]: float，转换的enu的y坐标
- *@Description:坐标转换
+ *@File name: map_projection_project
+ *@param[ref_lat]: double, reference latitude coordinate
+ *@param[ref_lon]: double, reference longitude coordinate
+ *@param[lat]: double, relative latitude coordinate
+ *@param[lon]: double, relative longitude coordinate
+ *@param[x]: float, converted ENU x coordinate
+ *@param[y]: float, converted ENU y coordinate
+ *@Description: Coordinate transformation
  **********************************************************/
 void map_projection_project(double ref_lat, double ref_lon, double lat,
                             double lon, float &x, float &y)
@@ -81,7 +82,7 @@ inline void clampToXYNorm(Eigen::Vector3f &target, float max_xy_norm, float accu
  * Constrain the 3D vector given a maximum Z norm
  * If the Z component of the 3D vector is larger than the maximum norm, the whole vector
  * is scaled down to respect the constraint.
- * If the maximum norm is small (defined by the "accuracy parameter),
+ * If the maximum norm is small (defined by the "accuracy" parameter),
  * only the Z component is scaled down to avoid affecting
  * XY in case of numerical issues
  */
@@ -105,10 +106,10 @@ inline void clampToZNorm(Eigen::Vector3f &target, float max_z_norm, float accura
     }
 }
 
-// NED坐标系转换函数
+// NED coordinate system conversion function
 Eigen::Vector3f enuToNed(const Eigen::Vector3f &enu)
 {
-    // ENU到NED坐标系转换的旋转矩阵
+    // Rotation matrix for ENU to NED coordinate transformation
     Eigen::Matrix3f rotation_matrix;
     rotation_matrix << 0, 1, 0,
         1, 0, 0,
@@ -119,11 +120,11 @@ Eigen::Vector3f enuToNed(const Eigen::Vector3f &enu)
 
 ProportionalNavigationNode::ProportionalNavigationNode()
 {
-    // 初始化发布器和订阅器
+    // Initialize publishers and subscribers
     velocity_pub_ = nh_.advertise<geometry_msgs::TwistStamped>("iris_0/mavros/setpoint_velocity/cmd_vel", 10);
     state_sub_ = nh_.subscribe("iris_0/mavros/state", 10, &ProportionalNavigationNode::stateCallback, this);
     position_sub_ = nh_.subscribe("iris_0/mavros/local_position/pose", 10, &ProportionalNavigationNode::positionCallback, this);
-    // 订阅 odom 信息
+    // Subscribe to odometry information
     odom_sub_ = nh_.subscribe("iris_0/mavros/local_position/odom", 10, &ProportionalNavigationNode::odomCallback, this);
     rc_sub_ = nh_.subscribe("joy", 10, &ProportionalNavigationNode::joyCallback, this);
     bbox_sub_ = nh_.subscribe("LightTrack/bounding_boxes", 10, &ProportionalNavigationNode::boundboxCallback, this);
@@ -135,7 +136,7 @@ ProportionalNavigationNode::ProportionalNavigationNode()
     target_sub_ = nh_.subscribe("rover_1/mavros/global_position/global", 10, &ProportionalNavigationNode::targetCallback, this);
     gps_origin_sub_ = nh_.subscribe("iris_0/mavros/global_position/gp_origin", 10, &ProportionalNavigationNode::gpsOriginCallback, this);
 
-    // 服务客户端，用于设置模式和解锁
+    // Service clients for setting mode and arming
     set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode>("iris_0/mavros/set_mode");
     arming_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("iris_0/mavros/cmd/arming");
 
@@ -153,7 +154,7 @@ ProportionalNavigationNode::ProportionalNavigationNode()
 
 void ProportionalNavigationNode::run()
 {
-    ros::Rate rate(50); // 50 Hz 控制频率
+    ros::Rate rate(50); // 50 Hz control frequency
 
     while (ros::ok() && !current_state_.connected)
     {
@@ -162,7 +163,7 @@ void ProportionalNavigationNode::run()
         rate.sleep();
     }
 
-    // 设置初始目标速度，以维持 OFFBOARD 模式
+    // Set initial target velocity to maintain OFFBOARD mode
     geometry_msgs::TwistStamped initial_cmd;
     initial_cmd.twist.linear.x = 0.0;
     initial_cmd.twist.linear.y = 0.0;
@@ -170,23 +171,16 @@ void ProportionalNavigationNode::run()
 
     for (int i = 0; ros::ok() && i < 100; ++i)
     {
-        velocity_pub_.publish(initial_cmd); // 发布初始指令
+        velocity_pub_.publish(initial_cmd); // Publish initial command
         ros::spinOnce();
         rate.sleep();
     }
-
-    // // 请求切换到 OFFBOARD 模式并解锁
-    // if (!setOffboardAndArm())
-    // {
-    //     ROS_ERROR("Failed to set OFFBOARD mode or arm the drone!");
-    //     return;
-    // }
 
     while (ros::ok())
     {
         if (start_attack_)
         {
-            // 检查当前状态
+            // Check current state
             if (current_state_.mode != "ALTCTL" || !current_state_.armed)
             {
                 ROS_WARN_THROTTLE(1, "OFFBOARD mode or arming lost. Trying to re-engage...");
@@ -203,7 +197,7 @@ void ProportionalNavigationNode::run()
             computeStickControl();
 
             // STEP: Use vel
-            // 计算并发布速度指令
+            // Calculate and publish speed command
             // geometry_msgs::TwistStamped cmd_vel = computeProportionalNavigation();
             // velocity_pub_.publish(cmd_vel);
 
@@ -218,13 +212,13 @@ void ProportionalNavigationNode::run()
             mavros_msgs::ManualControl manual_control_msg;
             manual_control_msg.header.stamp = ros::Time::now();
 
-            // 将计算出的roll, pitch, yaw, thrust 转换为手动控制信号
+            // The calculated roll, Pitch, yaw, thrust convert to manual control signal
             if (joy_updated_)
             {
-                manual_control_msg.x = joy_.axes[4] * 1000.f;               // 左右摇杆（roll）
-                manual_control_msg.y = -joy_.axes[3] * 1000.f;              // 前后摇杆（pitch
-                manual_control_msg.z = (joy_.axes[1] + 1.f) / 2.f * 1000.f; // 油门（thrust）
-                manual_control_msg.r = -joy_.axes[0] * 1000.f;              // 偏航（yaw)
+                manual_control_msg.x = joy_.axes[4] * 1000.f;               // Left and right rocker (roll)
+                manual_control_msg.y = -joy_.axes[3] * 1000.f;              // Front and rear rocker (pitch)
+                manual_control_msg.z = (joy_.axes[1] + 1.f) / 2.f * 1000.f; // Throttle（thrust）
+                manual_control_msg.r = -joy_.axes[0] * 1000.f;              // yaw
                 manual_control_pub_.publish(manual_control_msg);
             }
         }
@@ -279,19 +273,19 @@ void ProportionalNavigationNode::boundboxCallback(const darknet_ros_msgs::Boundi
 
 void ProportionalNavigationNode::odomCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
-    // 提取ENU坐标系下的位置 (从msg.pose.pose.position)
+    // Extract the position in the ENU coordinate system (from msg.pose.pose.position)
     Eigen::Vector3f enu_position(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
 
-    // 将ENU坐标系位置转换到NED坐标系
+    // Convert ENU coordinate system position to ned coordinate system
     drone_position_ = enuToNed(enu_position);
 
     // 提取ENU坐标系下的速度 (从msg.twist.twist.linear)
     Eigen::Vector3f enu_velocity(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
 
-    // 将ENU坐标系速度转换到NED坐标系
+    // Extract the speed in the ENU coordinate system (from msg.twist.twist.linear)
     drone_velocity_ = enuToNed(enu_velocity);
 
-    // 提取姿态
+    // Extract posture
     drone_orientation_ = Eigen::Quaternionf(msg->pose.pose.orientation.w,
                                             msg->pose.pose.orientation.x,
                                             msg->pose.pose.orientation.y,
@@ -306,7 +300,7 @@ void ProportionalNavigationNode::odomCallback(const nav_msgs::Odometry::ConstPtr
     geometry_msgs::Quaternion geo_quat = msg->pose.pose.orientation;
     tf2::Quaternion q(geo_quat.x, geo_quat.y, geo_quat.z, geo_quat.w);
 
-    // 确保四元数非零
+    // Ensure that quaternions are non-zero
     if (q.length2() < 1e-6)
     {
         ROS_WARN("Received zero quaternion! Skipping conversion.");
@@ -318,13 +312,10 @@ void ProportionalNavigationNode::odomCallback(const nav_msgs::Odometry::ConstPtr
     rotation_matrix.getRPY(roll, pitch, yaw);
 
     drone_rpy_ << roll, pitch, yaw;
-    // 输出欧拉角（单位：弧度）
-    // ROS_INFO("Yaw: %f, Pitch: %f, Roll: %f", yaw, -pitch, roll);
 }
 
 bool ProportionalNavigationNode::setOffboardAndArm()
 {
-    // 设置 OFFBOARD 模式
     mavros_msgs::SetMode set_mode_req;
     set_mode_req.request.custom_mode = "ALTCTL";
 
@@ -338,7 +329,6 @@ bool ProportionalNavigationNode::setOffboardAndArm()
         return false;
     }
 
-    // // 解锁飞控
     // mavros_msgs::CommandBool arm_req;
     // arm_req.request.value = true;
 
@@ -360,34 +350,34 @@ geometry_msgs::TwistStamped ProportionalNavigationNode::computeProportionalNavig
     geometry_msgs::TwistStamped cmd_vel;
     cmd_vel.header.stamp = ros::Time::now();
 
-    // 无人机当前位置
+    // Current position of UAV
     double ux = current_position_.pose.position.x;
     double uy = current_position_.pose.position.y;
     double uz = current_position_.pose.position.z;
 
     map_projection_project(gps_origin_.position.latitude, gps_origin_.position.longitude, target_.latitude, target_.longitude, target_ned_.x(), target_ned_.y());
 
-    // 目标点位置
+    // Target point location
     double tx = target_ned_.x();
     double ty = target_ned_.y();
     double tz = target_ned_.z();
 
-    // 计算相对位置和距离
+    // Calculate relative position and distance
     double dx = tx - ux;
     double dy = ty - uy;
     double dz = tz - uz;
     double distance = sqrt(dx * dx + dy * dy + dz * dz);
 
-    // 简化视线角变化率的比例引导 (假设目标静止)
-    double N = 4.0; // 导航比
+    // Simplified proportional guidance of LOS angle change rate
+    double N = 4.0; // navigation ratio
     double lambda_dot_x = dx / distance;
     double lambda_dot_y = dy / distance;
 
     cmd_vel.twist.linear.x = N * lambda_dot_x;
     cmd_vel.twist.linear.y = N * lambda_dot_y;
-    cmd_vel.twist.linear.z = 0.5 * dz; // 简单 P 控制 Z 方向
+    cmd_vel.twist.linear.z = 0.5 * dz; // Simple P control Z direction
 
-    // 限制最大速度
+    // Limit Maximum Speed
     double max_xy_vel = 5.0;
     double max_z_vel = 3.0;
     Eigen::Vector3f cur_pos(current_position_.pose.position.x, current_position_.pose.position.y, current_position_.pose.position.z);
@@ -414,25 +404,23 @@ geometry_msgs::TwistStamped ProportionalNavigationNode::computeProportionalNavig
     return cmd_vel;
 }
 
-// 定义函数计算目标航向角
+// Define function to calculate target heading angle
 float ProportionalNavigationNode::calculateYaw(const Eigen::Vector3f &current_pos, const Eigen::Vector3f &target_pos)
 {
     return std::atan2(target_pos.y() - current_pos.y(), target_pos.x() - current_pos.x());
 }
 
-// 更新发布航向的逻辑
 void ProportionalNavigationNode::publishSetpoint(const Eigen::Vector3f &velocity, const Eigen::Vector3f &current_pos, const Eigen::Vector3f &target_pos)
 {
     mavros_msgs::PositionTarget position_target_msg;
 
-    // 设置消息头
     position_target_msg.header.stamp = ros::Time::now();
     position_target_msg.header.frame_id = "map";
 
-    // 设置坐标系
+    // Set coordinate system
     position_target_msg.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;
 
-    // 设置控制模式
+    // Set control mode
     position_target_msg.type_mask = mavros_msgs::PositionTarget::IGNORE_PX |
                                     mavros_msgs::PositionTarget::IGNORE_PY |
                                     mavros_msgs::PositionTarget::IGNORE_PZ |
@@ -441,19 +429,18 @@ void ProportionalNavigationNode::publishSetpoint(const Eigen::Vector3f &velocity
                                     mavros_msgs::PositionTarget::IGNORE_AFZ |
                                     mavros_msgs::PositionTarget::IGNORE_YAW_RATE;
 
-    // 设置速度
+    // set speed
     position_target_msg.velocity.x = velocity.x();
     position_target_msg.velocity.y = velocity.y();
     position_target_msg.velocity.z = velocity.z();
 
-    // 设置目标航向角
+    // Set target heading angle
     position_target_msg.yaw = calculateYaw(current_pos, target_pos);
 
-    // 发布指令
     setpoint_pub_.publish(position_target_msg);
 }
 
-// 发布姿态指令
+// Publish attitude command
 void ProportionalNavigationNode::publishAttitude(float roll, float pitch, float yaw, float thrust)
 {
     mavros_msgs::AttitudeTarget attitude_msg;
@@ -462,7 +449,7 @@ void ProportionalNavigationNode::publishAttitude(float roll, float pitch, float 
                              mavros_msgs::AttitudeTarget::IGNORE_YAW_RATE |
                              mavros_msgs::AttitudeTarget::IGNORE_THRUST;
 
-    // 转换姿态为四元数
+    // Convert attitude to Quaternion
     tf2::Quaternion q;
     q.setRPY(roll, pitch, yaw);
 
@@ -471,13 +458,12 @@ void ProportionalNavigationNode::publishAttitude(float roll, float pitch, float 
     attitude_msg.orientation.z = q.z();
     attitude_msg.orientation.w = q.w();
 
-    // 设置推力
+    // Set thrust
     attitude_msg.thrust = thrust;
     attitude_msg.body_rate.x = 0.0;
     attitude_msg.body_rate.y = 0.0;
     attitude_msg.body_rate.z = 0.0;
 
-    // // 发布消息
     attitude_pub_.publish(attitude_msg);
 }
 
@@ -497,9 +483,9 @@ void ProportionalNavigationNode::computeStickControl()
         double rows = 480;
         double cols = 640;
 
-        // 计算误差
+        // calculation error
         double error = std::sqrt(dx * dx + dy * dy);
-        double alpha = alpha_min_ + (alpha_max_ - alpha_min_) * std::min(error / max_error_, 1.0); // 计算自适应 α
+        double alpha = alpha_min_ + (alpha_max_ - alpha_min_) * std::min(error / max_error_, 1.0); // Calculate adaptive α
         std::cout << "dx: " << dx << "dy: " << dy << "error: " << error << std::endl;
 
         // Control calculations (simple proportional)
@@ -522,13 +508,13 @@ void ProportionalNavigationNode::computeStickControl()
         yaw_input = std::max(-1.0, std::min(1.0, -yaw_input));
         thrust_input = std::max(0.0, std::min(1.0, thrust_input));
 
-        // **应用自适应低通滤波**
+        // **Application of adaptive low pass filtering**
         roll_input = alpha * roll_input + (1 - alpha) * prev_roll_input_;
         pitch_input = alpha * pitch_input + (1 - alpha) * prev_pitch_input_;
         yaw_input = alpha * yaw_input + (1 - alpha) * prev_yaw_input_;
         thrust_input = alpha * thrust_input + (1 - alpha) * prev_thrust_input_;
 
-        // **更新上一次的值**
+        // **Update last value**
         prev_roll_input_ = roll_input;
         prev_pitch_input_ = pitch_input;
         prev_yaw_input_ = yaw_input;
@@ -544,7 +530,7 @@ void ProportionalNavigationNode::computeStickControl()
         mavros_msgs::ManualControl manual_control_msg;
         manual_control_msg.header.stamp = ros::Time::now();
 
-        // 将计算出的roll, pitch, yaw, thrust 转换为手动控制信号
+        // The calculated roll, Pitch, yaw, thrust convert to manual control signal
         manual_control_msg.x = pitch_input * 1000.f;  // （pitch）
         manual_control_msg.y = roll_input * 1000.f;   // （roll）
         manual_control_msg.z = thrust_input * 1000.f; // （thrust）
@@ -557,7 +543,6 @@ void ProportionalNavigationNode::computeStickControl()
         mavros_msgs::ManualControl manual_control_msg;
         manual_control_msg.header.stamp = ros::Time::now();
 
-        // 将计算出的roll, pitch, yaw, thrust 转换为手动控制信号
         if (joy_updated_)
         {
             manual_control_msg.x = joy_.axes[4] * 1000.f;               // （pitch)
@@ -569,7 +554,7 @@ void ProportionalNavigationNode::computeStickControl()
     }
 }
 
-// 计算姿态控制
+// Computational attitude control
 mavros_msgs::ManualControl ProportionalNavigationNode::computeAttitudeControl()
 {
 
@@ -577,7 +562,7 @@ mavros_msgs::ManualControl ProportionalNavigationNode::computeAttitudeControl()
                            target_.latitude, target_.longitude, target_ned_.x(), target_ned_.y());
 
     target_velocity_.setZero();
-    // 计算相对位置和速度
+    // Calculate relative position and speed
     Eigen::Vector3f relative_position = target_ned_ - drone_position_;
     Eigen::Vector3f relative_velocity = target_velocity_ - drone_velocity_;
 
@@ -586,28 +571,28 @@ mavros_msgs::ManualControl ProportionalNavigationNode::computeAttitudeControl()
     // std::cout << "target_velocity_.x: " << target_velocity_.x() << "target_velocity_.y: " << target_velocity_.y() <<"target_velocity_.z: " << target_velocity_.z() << std::endl;
     // std::cout << "drone_velocity_.x: " << drone_velocity_.x() << "drone_velocity_.y: " << drone_velocity_.y() <<"drone_velocity_.z: " << drone_velocity_.z() << std::endl;
 
-    // 计算比例引导加速度
+    // Calculate proportional guidance acceleration
     Eigen::Vector3f cross_product = relative_velocity.cross(relative_position);
     Eigen::Vector3f acceleration = 2.0f * cross_product.cross(relative_position) / std::pow(relative_position.norm(), 2);
 
-    // 转换为目标加速度（包括重力）
+    // Convert to target acceleration (including gravity)
     Eigen::Vector3f target_acc = acceleration + Eigen::Vector3f(0, 0, GRAVITY);
 
     std::cout << "acceleration.x: " << acceleration.x() << "acceleration.y: " << acceleration.y() << "acceleration.z: " << acceleration.z() << std::endl;
 
-    // 计算目标方向
+    // Calculate target direction
     Eigen::Vector3f target_dir = target_acc.normalized();
 
-    // 计算俯仰和滚转角度
+    // Calculate pitch and roll angles
     float pitch = std::asin(-target_dir.y());
     float roll = std::atan2(target_dir.x(), target_dir.z());
     pitch = std::clamp(pitch, -MAX_TILT_ANGLE, MAX_TILT_ANGLE);
     roll = std::clamp(roll, -MAX_TILT_ANGLE, MAX_TILT_ANGLE);
 
-    // 计算偏航角
+    // Calculate yaw angle
     float Kp = 0.1f;
     float yaw = normalizeYaw(std::atan2(relative_position.y(), relative_position.x()));
-    // 推力设置
+    // Thrust setting
     float thrust = std::min(1.0f, target_acc.norm() / GRAVITY);
     float yaw_err = normalizeYaw(yaw - drone_rpy_(2));
     std::cout << "yaw: " << yaw << "drone_rpy_(2): " << drone_rpy_(2) << "yaw_err: " << yaw_err << std::endl;
@@ -615,11 +600,11 @@ mavros_msgs::ManualControl ProportionalNavigationNode::computeAttitudeControl()
     manual_control_msg.header.stamp = ros::Time::now();
 
     float dt = 0.1;
-    // 将计算出的roll, pitch, yaw, thrust 转换为手动控制信号
-    manual_control_msg.x = -pitch * dt * 1000.f;  // 左右摇杆（pitch）
-    manual_control_msg.y = roll * dt * 1000.f;    // 前后摇杆（roll）
-    manual_control_msg.z = thrust * 1000.f;       // 油门（thrust）
-    manual_control_msg.r = Kp * yaw_err * 1000.f; // 偏航（yaw)
+    // The calculated roll, Pitch, yaw, thrust convert to manual control signal
+    manual_control_msg.x = -pitch * dt * 1000.f;  // （pitch）
+    manual_control_msg.y = roll * dt * 1000.f;    // （roll）
+    manual_control_msg.z = thrust * 1000.f;       // （thrust）
+    manual_control_msg.r = Kp * yaw_err * 1000.f; // （yaw)
 
     std::cout << "pitch: " << pitch << "roll: " << roll << "yaw: " << yaw << "thrust: " << thrust << std::endl;
 
