@@ -504,6 +504,8 @@ rosservice call /iris_0/mavros/cmd/arming "value: true"
 It can fly freely to ensure that the vehicle can be seen in the UAV video screen, then select the
 target vehicle with the mouse box, press the space bar, and start image tracking
 
-![Screenshot from 2025-02-21 15-15-12](./images/Screenshot from 2025-02-21 15-15-12.png)
+<div align="center">
+    <img src="images/terminal_guidance1.png" width = 100% >
+</div>
 
 Finally, press button A on the remote control to start automatic attack.
