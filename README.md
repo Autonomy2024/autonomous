@@ -272,7 +272,9 @@ make px4_sitl gazebo
 
 If you run success, Now you can see :
 
-![](/home/jason/catkin_ws/src/autonomous/docs/Screenshot from 2024-11-27 16-21-01.png)
+<div align="center">
+    <img src="images/test_envirment.png" width = 100% >
+</div>
 
 
 
@@ -393,7 +395,9 @@ source ~/.bashrc
 roslaunch px4 mavros_posix_sitl.launch
 ```
 
-![Only for test envirments](./images/Screenshot from 2024-12-19 14-51-46.png)
+<div align="center">
+    <img src="images/test_envirment1.png" width = 100% >
+</div>
 
 #### 1.8 running VIO:
 
@@ -409,7 +413,9 @@ open a new terminal, running vio:
 bash ~/catkin_ws/src/autonomous/scripts/drone_run_vio.sh
 ```
 
-![running vio](./images/Screenshot from 2024-12-19 15-14-32.png)
+<div align="center">
+    <img src="images/vio_start.png" width = 100% >
+</div>
 
 open a new terminal, transfer vio data to mavros and fcs:
 
@@ -418,11 +424,15 @@ cd ~/catkin_ws/src/autonomous/scripts
 python3 vins_transfer.py iris 0
 ```
 
-![transfer odometry data](./images/Screenshot from 2024-12-19 15-13-42.png)
+<div align="center">
+    <img src="images/vio_transfer.png" width = 100% >
+</div>
 
 disable fuse gps, use qgroundcontrol set param ekf2_aid_mask to 24
 
-![fuse vio](./images/Screenshot from 2024-12-19 15-15-44.png)
+<div align="center">
+    <img src="images/vio_set.png" width = 100% >
+</div>
 
 And also need to set param:
 
@@ -436,7 +446,9 @@ Now you can use virtual joystick or Xbox360 joystick to arm and fly the drone.
 
 You can see the display of the aircraft’s trajectory in rviz
 
-
+<div align="center">
+    <img src="images/vio_fly.png" width = 100% >
+</div>
 
 #### 1.9 running Radar inertial odometery (RIO)
 
@@ -452,11 +464,15 @@ running rio
 bash ~/catkin_ws/src/autonomous/scripts/run_rio.sh
 ```
 
-![Running Rio](./images/Screenshot from 2024-12-19 15-27-19.png)
+<div align="center">
+    <img src="images/rio_start.png" width = 100% >
+</div>
 
 disable fuse gps, use qgroundcontrol set param ekf2_aid_mask to 256
 
-![fusion rio](./images/Screenshot from 2024-12-19 15-15-58.png)
+<div align="center">
+    <img src="images/rio_set.png" width = 100% >
+</div>
 
 And also need to set param:
 
@@ -470,7 +486,9 @@ Now you can use virtual joystick or Xbox360 joystick to arm and fly the drone.
 
 You can see the display of the drone’s trajectory in rviz
 
-![rio trajectory](./images/Screenshot from 2024-12-19 15-27-56.png)
+<div align="center">
+    <img src="images/rio_fly.png" width = 100% >
+</div>
 
 ### 1.10  running terminal guidance practice
 
@@ -492,7 +510,9 @@ cd ~/catkin_ws/src/autonomous/scripts
 bash running_attack.sh
 ```
 
-![Screenshot from 2025-02-21 15-07-14](./images/Screenshot from 2025-02-21 15-07-14.png)
+<div align="center">
+    <img src="images/terminal_guidance.png" width = 100% >
+</div>
 
 drone armming:
 open a new ternimal:
@@ -504,6 +524,8 @@ rosservice call /iris_0/mavros/cmd/arming "value: true"
 It can fly freely to ensure that the vehicle can be seen in the UAV video screen, then select the
 target vehicle with the mouse box, press the space bar, and start image tracking
 
-![Screenshot from 2025-02-21 15-15-12](./images/Screenshot from 2025-02-21 15-15-12.png)
+<div align="center">
+    <img src="images/terminal_guidance1.png" width = 100% >
+</div>
 
 Finally, press button A on the remote control to start automatic attack.
